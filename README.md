@@ -19,12 +19,12 @@ A modular, microservices-based system for **real-time detection of food handling
 ---
 
 ## Architecture Overview
-
+```
 ┌──────────────┐     ┌──────────────┐    ┌──────────────┐     ┌───────────────┐
 │ Frame Reader │ ───▶ │ Detection   │───▶ │ Streaming  │ ───▶ │ Web Browser │ 
 │ (Video → MQ) │     │ (YOLO, MQ) │ │    │ (API/WS/UI)  │     │ (UI + API)    │
 └──────────────┘     └──────────────┘    └──────────────┘     └───────────────┘
-
+```
 - **Frame Reader:** Sends video frames to RabbitMQ.
 - **Detection:** Detects objects, applies violation logic, publishes results.
 - **Streaming/UI:** Streams annotated video & serves live stats to browser.
@@ -32,7 +32,7 @@ A modular, microservices-based system for **real-time detection of food handling
 ---
 
 ## Directory Structure
-
+```
 ├── detection_service/
 │ ├── main.py
 │ ├── detector.py
@@ -52,7 +52,7 @@ A modular, microservices-based system for **real-time detection of food handling
 ├── requirements.txt
 ├── .gitignore
 └── README.md
-
+```
 
 ---
 
@@ -125,8 +125,11 @@ uvicorn main:app --host 0.0.0.0 --port 5000
 
 ## Usage
 - Browser UI displays video with detection overlays, ROIs, and live violation count.
-- API Endpoints:
-  /stats — live violation count (JSON)
-  /roi_config — ROI info (JSON)
-  /ws — WebSocket for video frames
+### API Endpoints:
+  - `/stats` — live violation count (JSON)
+  - `/roi_config` — ROI info (JSON)
+  - `/ws` — WebSocket for video frames
 
+## License
+
+MIT License
