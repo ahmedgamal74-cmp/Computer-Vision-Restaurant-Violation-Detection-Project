@@ -1,0 +1,12 @@
+opencv-python
+ultralytics
+fastapi
+uvicorn
+python-multipart
+pika
+streamlit
+pillow
+flask
+websockets
+uvicorn[standard]
+fastapi[all]

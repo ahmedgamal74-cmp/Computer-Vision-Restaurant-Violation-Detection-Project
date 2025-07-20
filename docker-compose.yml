@@ -1,0 +1,41 @@
+version: "3.8"
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: pizza-rabbit
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  frame_reader:
+    build: ./frame_reader
+    depends_on:
+      - rabbitmq
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+    volumes:
+      - ./data:/app/data
+
+  detection_service:
+    build: ./detection_service
+    depends_on:
+      - rabbitmq
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+    volumes:
+      - ./model:/app/model
+      - ./data:/app/data
+
+  streaming_service:
+    build: ./streaming_service
+    depends_on:
+      - rabbitmq
+    ports:
+      - "5000:5000"
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+    volumes:
+      - ./model:/app/model
+      - ./data:/app/data
+      - ./roi_config.json:/app/roi_config.json   # if needed

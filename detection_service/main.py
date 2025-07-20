@@ -10,6 +10,7 @@ from logic import ViolationLogic
 from PIL import Image, ImageDraw
 import os
 import sys
+from pathlib import Path
 
 DISPLAY_DEBUG_STREAM = False
 
@@ -31,6 +32,21 @@ FRAMES_QUEUE = config.FRAMES_QUEUE
 STREAMING_QUEUE = config.STREAMING_QUEUE
 VIOLATION_DIR = config.VIOLATION_DIR
 Path(VIOLATION_DIR).mkdir(exist_ok=True, parents=True)
+
+
+
+VIDEO_PATH = config.VIDEO_PATH  # e.g., "../data/video1.mp4"
+VIDEO_OUTPUT_DIR = "../videos/"
+Path(VIDEO_OUTPUT_DIR).mkdir(exist_ok=True, parents=True)
+
+# Get stem of the filename (no extension)
+input_video_stem = Path(VIDEO_PATH).stem  # "video1"
+output_video_name = f"{input_video_stem}_output.mp4"
+VIDEO_OUTPUT_PATH = os.path.join(VIDEO_OUTPUT_DIR, output_video_name)
+
+video_writer = None  # Will initialize when first frame arrives
+VIDEO_FPS = config.TARGET_FPS
+
 
 # Init detector and logic
 detector = ViolationDetector(MODEL_PATH, conf_threshold=0.2)
@@ -66,6 +82,9 @@ def send_to_streaming(channel, data):
     )
 
 def callback(ch, method, properties, body):
+
+    global video_writer
+
     try:
         msg = json.loads(body)
         frame_index = msg["frame_index"]
@@ -108,12 +127,31 @@ def callback(ch, method, properties, body):
         if violation:
             cv2.putText(frame_vis, "VIOLATION", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0,0,255), 3)
 
+        # if DISPLAY_DEBUG_STREAM:
+        #     cv2.imshow("Detection Debug", frame_vis)
+        #     key = cv2.waitKey(1) & 0xFF
+        #     if key == ord('q'):
+        #         print("Quitting debug window.")
+        #         cv2.destroyAllWindows()
+        #         exit(0)
+
+        if video_writer is None:
+            # Initialize on first frame
+            h, w = frame_vis.shape[:2]
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Or 'XVID'
+            video_writer = cv2.VideoWriter(VIDEO_OUTPUT_PATH, fourcc, VIDEO_FPS, (w, h))
+            print(f"[+] VideoWriter initialized: {VIDEO_OUTPUT_PATH}")
+
+        video_writer.write(frame_vis)  # Write frame to video
+
         if DISPLAY_DEBUG_STREAM:
             cv2.imshow("Detection Debug", frame_vis)
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q'):
                 print("Quitting debug window.")
                 cv2.destroyAllWindows()
+                if video_writer is not None:
+                    video_writer.release()
                 exit(0)
 
         result = {
@@ -138,6 +176,7 @@ def callback(ch, method, properties, body):
         import traceback; traceback.print_exc()
 
 def main():
+    global video_writer
     try:
         connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBITMQ_HOST))
         channel = connection.channel()
@@ -150,6 +189,9 @@ def main():
         print(" [!] Interrupted by user.")
     finally:
         cv2.destroyAllWindows()
+        if video_writer is not None:
+            video_writer.release()
+            print(f"[+] Video saved to: {VIDEO_OUTPUT_PATH}")
 
 if __name__ == "__main__":
     main()
