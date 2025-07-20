@@ -2,8 +2,6 @@
 
 A modular, microservices-based system for **real-time detection of food handling violations in restaurant kitchens**, powered by computer vision (YOLO), RabbitMQ, and a live browser UI.
 
-**Repo:** [ahmedgamal74-cmp/Computer-Vision-Restaurant-Violation-Detection-Project](https://github.com/ahmedgamal74-cmp/Computer-Vision-Restaurant-Violation-Detection-Project)
-
 ---
 
 ## Features
