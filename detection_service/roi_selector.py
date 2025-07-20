@@ -40,7 +40,7 @@ def draw_rectangle(event, x, y, flags, param):
             "name": name,
             "x1": x1, "y1": y1, "x2": x2, "y2": y2
         })
-        print(f"ROI '{name}' added. Press 'n' to add another or 's' to save and quit.")
+        print(f"ROI '{name}' added -- Press 'n' to add another or 's' to save and quit.")
 
 def main():
     global frame, temp_frame

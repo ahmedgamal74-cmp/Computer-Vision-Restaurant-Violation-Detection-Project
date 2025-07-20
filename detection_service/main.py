@@ -12,6 +12,8 @@ import os
 import sys
 from pathlib import Path
 
+#------------------------ Configrations ----------------------------------
+
 DISPLAY_DEBUG_STREAM = False
 
 # Paths and config
@@ -35,28 +37,29 @@ Path(VIOLATION_DIR).mkdir(exist_ok=True, parents=True)
 
 
 
-VIDEO_PATH = config.VIDEO_PATH  # e.g., "../data/video1.mp4"
+VIDEO_PATH = config.VIDEO_PATH  
 VIDEO_OUTPUT_DIR = "../videos/"
 Path(VIDEO_OUTPUT_DIR).mkdir(exist_ok=True, parents=True)
 
-# Get stem of the filename (no extension)
-input_video_stem = Path(VIDEO_PATH).stem  # "video1"
+input_video_stem = Path(VIDEO_PATH).stem  
 output_video_name = f"{input_video_stem}_output.mp4"
 VIDEO_OUTPUT_PATH = os.path.join(VIDEO_OUTPUT_DIR, output_video_name)
 
-video_writer = None  # Will initialize when first frame arrives
+video_writer = None  # intialize the video saving file
 VIDEO_FPS = config.TARGET_FPS
 
 
-# Init detector and logic
+#------------------------ Logic and Detections ----------------------------------
 detector = ViolationDetector(MODEL_PATH, conf_threshold=0.2)
 logic = ViolationLogic(ROI_CONFIG)
 
+# decode the base 64 frames that we get from broker 
 def decode_frame(frame_b64):
     jpg_data = base64.b64decode(frame_b64)
     np_arr = np.frombuffer(jpg_data, np.uint8)
     return cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
+# draw detections boxes on frames
 def draw_boxes(frame, detections):
     im = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
     draw = ImageDraw.Draw(im)
@@ -68,12 +71,14 @@ def draw_boxes(frame, detections):
         draw.text((x1, y1-10), label, fill=color)
     return im
 
+# save the violation frames to a folder 
 def save_violation_frame(frame, detections, frame_index):
     img = draw_boxes(frame, detections)
     fname = f"{VIOLATION_DIR}violation_{frame_index}.jpg"
     img.save(fname)
     return fname
 
+# send the frames to streaming server
 def send_to_streaming(channel, data):
     channel.basic_publish(
         exchange='',
@@ -81,6 +86,7 @@ def send_to_streaming(channel, data):
         body=json.dumps(data)
     )
 
+# the detection service callback 
 def callback(ch, method, properties, body):
 
     global video_writer
@@ -98,7 +104,7 @@ def callback(ch, method, properties, body):
 
         frame_vis = frame.copy()
 
-        # Draw ingredient/cargo ROIs from config
+        # draw  ROIs from config json file
         for roi in logic.ingredient_rois:
             x1, y1, x2, y2 = roi['x1'], roi['y1'], roi['x2'], roi['y2']
             color = (0, 255, 0)
@@ -109,7 +115,7 @@ def callback(ch, method, properties, body):
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2
             )
 
-        # Draw dynamic detections
+        # draw detections
         for det in detections:
             x1, y1, x2, y2 = det['bbox']
             label = det['label']
@@ -131,24 +137,22 @@ def callback(ch, method, properties, body):
         #     cv2.imshow("Detection Debug", frame_vis)
         #     key = cv2.waitKey(1) & 0xFF
         #     if key == ord('q'):
-        #         print("Quitting debug window.")
         #         cv2.destroyAllWindows()
         #         exit(0)
 
         if video_writer is None:
-            # Initialize on first frame
+            # initialize the video saved on first frame 
             h, w = frame_vis.shape[:2]
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Or 'XVID'
             video_writer = cv2.VideoWriter(VIDEO_OUTPUT_PATH, fourcc, VIDEO_FPS, (w, h))
-            print(f"[+] VideoWriter initialized: {VIDEO_OUTPUT_PATH}")
+            print(f"saving  video created: {VIDEO_OUTPUT_PATH}")
 
-        video_writer.write(frame_vis)  # Write frame to video
+        video_writer.write(frame_vis)  # add fframe to video
 
         if DISPLAY_DEBUG_STREAM:
             cv2.imshow("Detection Debug", frame_vis)
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q'):
-                print("Quitting debug window.")
                 cv2.destroyAllWindows()
                 if video_writer is not None:
                     video_writer.release()
@@ -160,19 +164,19 @@ def callback(ch, method, properties, body):
             "video_source": video_source,
             "detections": detections,
             "violation": violation,
-            "rois": logic.ingredient_rois # .rois
+            "rois": logic.ingredient_rois
             # "frame_data": frame_b64 
         }
 
         if violation:
             fname = save_violation_frame(frame, detections, frame_index)
-            print(f"[!] Violation detected on frame {frame_index} (saved {fname})")
+            print(f"!! violation detected on frame {frame_index} (saved {fname})")
             result["violation_frame_path"] = fname
 
         send_to_streaming(ch, result)
-        print(f"[>] Processed frame {frame_index} (violation={violation})")
+        print(f"processed frame {frame_index} (violation={violation})")
     except Exception as e:
-        print("[!] Exception in detection callback:", e)
+        print("exception in detection callback:", e)
         import traceback; traceback.print_exc()
 
 def main():
@@ -183,15 +187,15 @@ def main():
         channel.queue_declare(queue=FRAMES_QUEUE)
         channel.queue_declare(queue=STREAMING_QUEUE)
         channel.basic_consume(queue=FRAMES_QUEUE, on_message_callback=callback, auto_ack=True)
-        print("[*] Waiting for frames. To exit press CTRL+C")
+        print("!! Waiting for frames............")
         channel.start_consuming()
     except KeyboardInterrupt:
-        print(" [!] Interrupted by user.")
+        print("!! interrupted by user !!")
     finally:
         cv2.destroyAllWindows()
         if video_writer is not None:
             video_writer.release()
-            print(f"[+] Video saved to: {VIDEO_OUTPUT_PATH}")
+            print(f"## video saved to: {VIDEO_OUTPUT_PATH}")
 
 if __name__ == "__main__":
     main()

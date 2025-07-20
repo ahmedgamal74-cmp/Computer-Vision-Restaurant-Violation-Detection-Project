@@ -12,6 +12,7 @@ import asyncio
 import os
 import sys
 
+# ------------------------------- Configrations -------------------------
 # VIDEO_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../data/Sah w b3dha ghalt (2).mp4"))
 # RABBITMQ_HOST = "localhost"
 # STREAMING_QUEUE = "streaming"
@@ -25,16 +26,16 @@ VIDEO_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), VIDEO_PATH)
 
 app = FastAPI()
 
-# --- Enable CORS for local testing and API calls from any origin ---
+# CORS for local testing and API calls from any origin
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, restrict to your frontend domain
+    allow_origins=["*"],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# --- Serve the frontend (HTML/JS) directly from FastAPI ---
+# serve the frontend (HTML/JS)  from FastAPI 
 frontend_dir = os.path.join(os.path.dirname(__file__), "frontend")
 if os.path.exists(frontend_dir):
     app.mount("/frontend", StaticFiles(directory=frontend_dir, html=True), name="frontend")
@@ -44,6 +45,7 @@ latest_detection = {}
 violation_count = 0
 lock = threading.Lock()
 
+# upload streaming frames to rabbit
 def rabbitmq_consumer():
     global latest_detection, violation_count
     def callback(ch, method, properties, body):
@@ -57,9 +59,11 @@ def rabbitmq_consumer():
     channel = connection.channel()
     channel.queue_declare(queue=STREAMING_QUEUE)
     channel.basic_consume(queue=STREAMING_QUEUE, on_message_callback=callback, auto_ack=True)
-    print("[*] Streaming Service waiting for detection results...")
+    print(" waiting for detection results ......")
     channel.start_consuming()
 
+# ------------------------------------- endpoints ------------------------------
+# endpoint to get number of ddetections 
 @app.get("/stats")
 async def get_stats():
     global violation_count
@@ -67,14 +71,14 @@ async def get_stats():
         return JSONResponse({
             "total_violations": violation_count
         })
-
+# endpoint to send ROIs json
 @app.get("/roi_config")
 async def get_roi_config():
     import json
-    with open("../detection_service/roi_config.json", "r") as f:  # <-- adjust path if needed
+    with open("../detection_service/roi_config.json", "r") as f:  
         rois = json.load(f)
     return rois
-
+# endpoint for web
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
@@ -108,7 +112,7 @@ async def websocket_endpoint(websocket: WebSocket):
             await asyncio.sleep(0.03)
     except WebSocketDisconnect:
         cap.release()
-        print("[*] WebSocket client disconnected.")
+        print("WebSocket client disconnected")
 
-# --- Start the RabbitMQ consumer in the background ---
+# start the rabbit consumer
 threading.Thread(target=rabbitmq_consumer, daemon=True).start()
