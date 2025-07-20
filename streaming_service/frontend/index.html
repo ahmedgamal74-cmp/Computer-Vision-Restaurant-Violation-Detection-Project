@@ -1,0 +1,182 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Pizza Violation Detection</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background: #222; color: #eee; }
+        #video { border: 3px solid #3af; border-radius: 16px; background: #000; }
+        #violations { font-size: 2rem; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h2>🍕 Real-Time Pizza Violation Detection 🍕</h2>
+    <canvas id="video" width="640" height="416"></canvas>
+    <div id="violations">Violations: <span id="violations-count">0</span></div>
+    <script>
+        // ---- Scaling constants, set to your original frame size! ----
+        const ORIGINAL_FRAME_WIDTH = 1706;
+        const ORIGINAL_FRAME_HEIGHT = 1030;
+
+        // --- Draw ROIs on top of each video frame ---
+        let rois = [];
+        fetch("/roi_config")
+            .then(resp => resp.json())
+            .then(data => { rois = data; });
+
+        const canvas = document.getElementById('video');
+        const ctx = canvas.getContext('2d');
+        let wsProto = (location.protocol === "https:") ? "wss" : "ws";
+        let wsUrl = wsProto + "://" + location.host + "/ws";
+        let ws = new WebSocket(wsUrl);
+
+        ws.binaryType = "arraybuffer";
+        ws.onmessage = function(event) {
+            let blob = new Blob([event.data], {type: 'image/jpeg'});
+            let url = URL.createObjectURL(blob);
+            let img = new Image();
+            img.onload = function() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                console.log("img size:", img.width, img.height, "canvas:", canvas.width, canvas.height, "ROIs:", rois);
+
+                // --- ROI scaling (always correct, even if canvas size changes) ---
+                let xScale = canvas.width / ORIGINAL_FRAME_WIDTH;
+                let yScale = canvas.height / ORIGINAL_FRAME_HEIGHT;
+
+                // Draw all ROIs in green with labels
+                ctx.save();
+                ctx.strokeStyle = 'lime';
+                ctx.lineWidth = 2;
+                ctx.font = "16px Arial";
+                ctx.fillStyle = 'lime';
+                rois.forEach(roi => {
+                    ctx.strokeRect(
+                        roi.x1 * xScale,
+                        roi.y1 * yScale,
+                        (roi.x2 - roi.x1) * xScale,
+                        (roi.y2 - roi.y1) * yScale
+                    );
+                    ctx.fillText(
+                        roi.name,
+                        roi.x1 * xScale + 4,
+                        roi.y1 * yScale + 20
+                    );
+                });
+                ctx.restore();
+                URL.revokeObjectURL(url);
+            };
+            img.src = url;
+        };
+
+        ws.onopen = () => console.log("WebSocket connected.");
+        ws.onclose = () => console.log("WebSocket disconnected.");
+
+        // Poll REST API for number of violations
+        function fetchViolations() {
+            fetch("/stats")
+                .then(resp => resp.json())
+                .then(data => {
+                    document.getElementById('violations-count').innerText = data.total_violations;
+                })
+                .catch(() => {
+                    document.getElementById('violations-count').innerText = "N/A";
+                });
+        }
+        setInterval(fetchViolations, 1500); // update every 1.5 seconds
+        fetchViolations();
+    </script>
+</body>
+</html> -->
+
+
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Pizza Violation Detection</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background: #222; color: #eee; }
+        #video { border: 3px solid #3af; border-radius: 16px; background: #000; display: block; margin: 0 auto; }
+        #violations { font-size: 2rem; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h2>🍕 Real-Time Pizza Violation Detection 🍕</h2>
+    <canvas id="video"></canvas>
+    <div id="violations">Violations: <span id="violations-count">0</span></div>
+    <script>
+        // --- Draw ROIs on top of each video frame ---
+        let rois = [];
+        fetch("/roi_config")
+            .then(resp => resp.json())
+            .then(data => { rois = data; });
+
+        const canvas = document.getElementById('video');
+        const ctx = canvas.getContext('2d');
+
+        let wsProto = (location.protocol === "https:") ? "wss" : "ws";
+        let wsUrl = wsProto + "://" + location.host + "/ws";
+        let ws = new WebSocket(wsUrl);
+
+        ws.binaryType = "arraybuffer";
+        ws.onmessage = function(event) {
+            let blob = new Blob([event.data], {type: 'image/jpeg'});
+            let url = URL.createObjectURL(blob);
+            let img = new Image();
+            img.onload = function() {
+                // --- Resize canvas to match incoming frame size ---
+                if (canvas.width !== img.width || canvas.height !== img.height) {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                }
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0);
+
+                // --- Draw ROIs at native coordinates (no scaling) ---
+                ctx.save();
+                ctx.strokeStyle = 'lime';
+                ctx.lineWidth = 2;
+                ctx.font = "16px Arial";
+                ctx.fillStyle = 'lime';
+                rois.forEach(roi => {
+                    ctx.strokeRect(
+                        roi.x1,
+                        roi.y1,
+                        roi.x2 - roi.x1,
+                        roi.y2 - roi.y1
+                    );
+                    ctx.fillText(
+                        roi.name,
+                        roi.x1 + 4,
+                        roi.y1 + 20
+                    );
+                });
+                ctx.restore();
+                URL.revokeObjectURL(url);
+            };
+            img.src = url;
+        };
+
+        ws.onopen = () => console.log("WebSocket connected.");
+        ws.onclose = () => console.log("WebSocket disconnected.");
+
+        // Poll REST API for number of violations
+        function fetchViolations() {
+            fetch("/stats")
+                .then(resp => resp.json())
+                .then(data => {
+                    document.getElementById('violations-count').innerText = data.total_violations;
+                })
+                .catch(() => {
+                    document.getElementById('violations-count').innerText = "N/A";
+                });
+        }
+        setInterval(fetchViolations, 1500); // update every 1.5 seconds
+        fetchViolations();
+    </script>
+</body>
+</html>

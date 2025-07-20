@@ -1,0 +1,41 @@
+# Ignore Python cache and environment
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+ENV/
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+model/
+data/
+*.pt
+*.mp4
+*.avi
+*.mov
+*.jpg
+.idea/
+.vscode/
+.DS_Store/
+
+# Ignore model and data directories
+model/
+data/
+
+# Ignore video and large files
+*.mp4
+*.avi
+*.mov
+*.h5
+*.onnx
+*.pt
+
+# Ignore editor and OS-specific files
+.DS_Store
+.idea/
+.vscode/
