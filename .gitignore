@@ -25,7 +25,7 @@ data/
 .idea/
 .vscode/
 .DS_Store/
-
+test.py
 # Ignore model and data directories
 model/
 data/
